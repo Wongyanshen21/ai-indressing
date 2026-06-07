@@ -1,0 +1,10 @@
+{
+  "clothing": {
+    "template": "A photo of a person wearing {description}, realistic, high quality",
+    "negative": "blurry, low quality, distorted, deformed"
+  },
+  "hair": {
+    "template": "A person with {description} hairstyle, detailed",
+    "negative": "blurry, deformed face"
+  }
+}
