@@ -2,7 +2,8 @@ import os
 import io
 import base64
 import logging
-import httpx
+import asyncio
+import requests
 import numpy as np
 from PIL import Image
 
@@ -19,30 +20,31 @@ async def segment_clothing(image_bytes: bytes) -> bytes:
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    async with httpx.AsyncClient() as client:
-        logger.info("Sending request to HF API...")
-        resp = await client.post(HF_API_URL, headers=headers, content=image_bytes, timeout=120.0)
-        logger.info(f"HF API responded with status {resp.status_code}")
+    def _call_hf():
+        return requests.post(HF_API_URL, headers=headers, data=image_bytes, timeout=120)
 
-        if resp.status_code == 503:
-            logger.info("Model is loading, retrying once...")
-            import asyncio
-            await asyncio.sleep(5)
-            resp = await client.post(HF_API_URL, headers=headers, content=image_bytes, timeout=120.0)
-            logger.info(f"HF API retry responded with status {resp.status_code}")
+    logger.info("Sending request to HF API...")
+    resp = await asyncio.to_thread(_call_hf)
+    logger.info(f"HF API responded with status {resp.status_code}")
 
-        if resp.status_code != 200:
-            raise RuntimeError(f"HF API returned {resp.status_code}: {resp.text[:500]}")
+    if resp.status_code == 503:
+        logger.info("Model is loading, retrying once...")
+        await asyncio.sleep(5)
+        resp = await asyncio.to_thread(_call_hf)
+        logger.info(f"HF API retry responded with status {resp.status_code}")
 
-        content_type = resp.headers.get("content-type", "")
+    if resp.status_code != 200:
+        raise RuntimeError(f"HF API returned {resp.status_code}: {resp.text[:500]}")
 
-        if "application/json" in content_type:
-            data = resp.json()
-            if isinstance(data, dict) and "error" in data:
-                raise RuntimeError(f"HF API error: {data['error']}")
-            return _parse_json_response(data)
-        else:
-            return _fallback_mask(resp.content)
+    content_type = resp.headers.get("content-type", "")
+
+    if "application/json" in content_type:
+        data = resp.json()
+        if isinstance(data, dict) and "error" in data:
+            raise RuntimeError(f"HF API error: {data['error']}")
+        return _parse_json_response(data)
+    else:
+        return _fallback_mask(resp.content)
 
 
 def _parse_json_response(data: list) -> bytes:

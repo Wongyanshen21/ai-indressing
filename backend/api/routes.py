@@ -1,5 +1,6 @@
 import os
-import httpx
+import requests
+import asyncio
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import Response
 from models.segmentation import segment_clothing
@@ -19,19 +20,21 @@ async def test_hf_connectivity():
     if not token:
         return {"error": "HUGGINGFACE_API_TOKEN not set"}
 
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(
-                "https://api-inference.huggingface.co/models/mattmdjaga/segformer_b2_clothes",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=10.0,
-            )
-            return {
-                "status": resp.status_code,
-                "body_preview": resp.text[:300],
-            }
-        except Exception as e:
-            return {"error": str(e)}
+    def _test():
+        return requests.get(
+            "https://api-inference.huggingface.co/models/mattmdjaga/segformer_b2_clothes",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10.0,
+        )
+
+    try:
+        resp = await asyncio.to_thread(_test)
+        return {
+            "status_code": resp.status_code,
+            "body_preview": resp.text[:300],
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @router.post("/segment")
