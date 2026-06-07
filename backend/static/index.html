@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Indressing - Test Mask</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
+    h1 { margin-bottom: 1rem; }
+    #preview, #result { max-width: 100%; margin-top: 1rem; display: none; }
+    .row { display: flex; gap: 2rem; align-items: start; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 300px; }
+    label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+    input[type="file"] { display: block; margin-bottom: 1rem; }
+    button { padding: 0.5rem 1.5rem; background: #0070f3; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    img { border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+    #status { margin-top: 1rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; }
+    .error { color: #d32f2f; }
+    .success { color: #2e7d32; }
+  </style>
+</head>
+<body>
+  <h1>AI Indressing - Clothing Mask Test</h1>
+
+  <div class="row">
+    <div class="col">
+      <label>Upload a photo of a person</label>
+      <input type="file" id="fileInput" accept="image/*">
+      <img id="preview">
+    </div>
+    <div class="col">
+      <label>Clothing Mask Result</label>
+      <img id="result">
+      <button id="detectBtn" disabled>Detect Clothing</button>
+    </div>
+  </div>
+
+  <div id="status">Upload a photo to begin</div>
+
+  <script>
+    const API_URL = "/api/segment";
+    const fileInput = document.getElementById("fileInput");
+    const preview = document.getElementById("preview");
+    const result = document.getElementById("result");
+    const detectBtn = document.getElementById("detectBtn");
+    const status = document.getElementById("status");
+    let currentFile = null;
+
+    fileInput.addEventListener("change", (e) => {
+      currentFile = e.target.files[0];
+      if (!currentFile) return;
+
+      preview.src = URL.createObjectURL(currentFile);
+      preview.style.display = "block";
+      result.style.display = "none";
+      detectBtn.disabled = false;
+      status.textContent = "Photo loaded. Click 'Detect Clothing'.";
+      status.className = "";
+    });
+
+    detectBtn.addEventListener("click", async () => {
+      if (!currentFile) return;
+
+      detectBtn.disabled = true;
+      status.textContent = "Sending to AI...";
+      status.className = "";
+
+      const formData = new FormData();
+      formData.append("file", currentFile);
+
+      try {
+        const resp = await fetch(API_URL, { method: "POST", body: formData });
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          throw new Error(err);
+        }
+
+        const blob = await resp.blob();
+        result.src = URL.createObjectURL(blob);
+        result.style.display = "block";
+        status.textContent = "Clothing mask generated!";
+        status.className = "success";
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+        status.className = "error";
+      } finally {
+        detectBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
