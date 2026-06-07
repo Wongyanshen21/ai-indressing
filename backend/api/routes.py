@@ -1,3 +1,5 @@
+import os
+import httpx
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import Response
 from models.segmentation import segment_clothing
@@ -9,6 +11,27 @@ router = APIRouter(prefix="/api")
 async def upload_photo(file: UploadFile = File(...)):
     contents = await file.read()
     return {"filename": file.filename, "size": len(contents)}
+
+
+@router.get("/hf-test")
+async def test_hf_connectivity():
+    token = os.getenv("HUGGINGFACE_API_TOKEN")
+    if not token:
+        return {"error": "HUGGINGFACE_API_TOKEN not set"}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(
+                "https://api-inference.huggingface.co/models/mattmdjaga/segformer_b2_clothes",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10.0,
+            )
+            return {
+                "status": resp.status_code,
+                "body_preview": resp.text[:300],
+            }
+        except Exception as e:
+            return {"error": str(e)}
 
 
 @router.post("/segment")
