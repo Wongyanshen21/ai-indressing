@@ -1,10 +1,36 @@
 {
   "clothing": {
-    "template": "A photo of a person wearing {description}, realistic, high quality",
-    "negative": "blurry, low quality, distorted, deformed"
+    "template": "A photo of a person wearing {prompt}, realistic, high quality",
+    "negative": "blurry, low quality, distorted, deformed",
+    "presets": [
+      {
+        "label": "Classic Suit",
+        "prompt": "a tailored black suit with a crisp white shirt and silk tie"
+      },
+      {
+        "label": "Summer Casual",
+        "prompt": "a light linen shirt and khaki shorts, relaxed summer vibe"
+      },
+      {
+        "label": "Evening Gown",
+        "prompt": "an elegant floor-length velvet evening gown"
+      },
+      {
+        "label": "Sporty Look",
+        "prompt": "a performance athletic wear with running shoes"
+      },
+      {
+        "label": "Leather Jacket",
+        "prompt": "a black biker leather jacket over a white t-shirt and ripped jeans"
+      },
+      {
+        "label": "Bohemian Style",
+        "prompt": "a flowy embroidered boho dress with layered necklaces"
+      }
+    ]
   },
   "hair": {
-    "template": "A person with {description} hairstyle, detailed",
+    "template": "A person with {prompt} hairstyle, detailed",
     "negative": "blurry, deformed face"
   }
 }

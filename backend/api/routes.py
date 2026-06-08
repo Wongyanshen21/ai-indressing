@@ -1,6 +1,8 @@
 import os
+import json
 import socket
 import asyncio
+from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import Response
 from models.segmentation import segment_clothing
@@ -23,6 +25,14 @@ async def test_dns():
         except OSError as e:
             results[host] = {"error": str(e), "status": "failed"}
     return results
+
+
+@router.get("/presets")
+async def get_presets():
+    presets_path = Path(__file__).resolve().parent.parent / "presets.json"
+    if not presets_path.exists():
+        return {"presets": []}
+    return json.loads(presets_path.read_text(encoding="utf-8"))
 
 
 @router.post("/upload")
