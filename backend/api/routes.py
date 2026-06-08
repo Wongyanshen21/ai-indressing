@@ -3,7 +3,7 @@ import json
 import socket
 import asyncio
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response
 from models.segmentation import segment_clothing
 from models.inpainting import inpaint_image
@@ -77,7 +77,7 @@ async def get_clothing_mask(file: UploadFile = File(...)):
 
 
 @router.post("/inpaint")
-async def inpaint(file: UploadFile = File(...), mask: UploadFile = File(...), prompt: str = ""):
+async def inpaint(file: UploadFile = File(...), mask: UploadFile = File(...), prompt: str = Form("")):
     image_bytes = await file.read()
     mask_bytes = await mask.read()
     if not prompt:
