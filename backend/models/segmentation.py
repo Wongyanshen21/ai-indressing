@@ -1,80 +1,51 @@
-import os
 import io
-import asyncio
-import base64
 import logging
-import requests
 import numpy as np
 from PIL import Image
+from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 
 logger = logging.getLogger(__name__)
 
 CLOTHING_LABELS = {"Upper-clothes", "Skirt", "Pants", "Dress", "Belt", "Left-shoe", "Right-shoe"}
 
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/mattmdjaga/segformer_b2_clothes"
+_model = None
+_processor = None
+
+
+def _ensure_model():
+    global _model, _processor
+    if _model is None:
+        logger.info("Loading segmentation model (this may take a minute on first request)...")
+        model_id = "mattmdjaga/segformer_b2_clothes"
+        _processor = SegformerImageProcessor.from_pretrained(model_id)
+        _model = SegformerForSemanticSegmentation.from_pretrained(model_id)
+        logger.info("Segmentation model loaded")
+    return _model, _processor
 
 
 async def segment_clothing(image_bytes: bytes) -> bytes:
-    token = os.getenv("HUGGINGFACE_API_TOKEN")
-    if not token:
-        raise ValueError("HUGGINGFACE_API_TOKEN not set")
+    model, processor = _ensure_model()
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/octet-stream",
-    }
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    inputs = processor(images=image, return_tensors="pt")
+    outputs = model(**inputs)
+    preds = outputs.logits.argmax(dim=1).squeeze().cpu().numpy().astype(np.uint8)
 
-    def _call():
-        return requests.post(HF_API_URL, headers=headers, data=image_bytes, timeout=120)
+    id2label = model.config.id2label
 
-    logger.info("Sending request to HF Inference API...")
-    resp = await asyncio.to_thread(_call)
-    logger.info(f"HF API responded with status {resp.status_code}")
-
-    if resp.status_code == 503:
-        logger.info("Model is loading, retrying once...")
-        await asyncio.sleep(5)
-        resp = await asyncio.to_thread(_call)
-        logger.info(f"HF API retry responded with status {resp.status_code}")
-
-    if resp.status_code != 200:
-        raise RuntimeError(f"HF API returned {resp.status_code}: {resp.text[:500]}")
-
-    content_type = resp.headers.get("content-type", "")
-
-    if "application/json" in content_type:
-        data = resp.json()
-        if isinstance(data, dict) and "error" in data:
-            raise RuntimeError(f"HF API error: {data['error']}")
-        return _parse_json_response(data)
-    else:
-        return _fallback_mask(resp.content)
-
-
-def _parse_json_response(data: list) -> bytes:
-    masks = []
-    for item in data:
-        label = item.get("label", "")
+    clothing_mask = np.zeros_like(preds, dtype=np.uint8)
+    for class_id, label in id2label.items():
         if label in CLOTHING_LABELS:
-            mask_bytes = base64.b64decode(item["mask"])
-            mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
-            masks.append(np.array(mask_img))
+            clothing_mask = np.maximum(clothing_mask, (preds == class_id).astype(np.uint8))
 
-    if not masks:
+    if clothing_mask.sum() == 0:
         raise ValueError("No clothing detected in image")
 
-    combined = np.maximum.reduce(masks).astype(np.uint8)
-    combined[combined > 0] = 255
+    clothing_mask[clothing_mask > 0] = 255
+    mask_img = Image.fromarray(clothing_mask, mode="L")
 
-    result = Image.fromarray(combined, mode="L")
-    buf = io.BytesIO()
-    result.save(buf, format="PNG")
-    return buf.getvalue()
+    mask_img = mask_img.resize(image.size, Image.NEAREST)
 
-
-def _fallback_mask(image_bytes: bytes) -> bytes:
-    mask_img = Image.open(io.BytesIO(image_bytes)).convert("L")
-    mask_img = mask_img.point(lambda x: 255 if x > 0 else 0)
     buf = io.BytesIO()
     mask_img.save(buf, format="PNG")
     return buf.getvalue()

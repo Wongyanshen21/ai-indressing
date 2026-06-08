@@ -6,3 +6,6 @@ Pillow==10.3.0
 python-dotenv==1.0.1
 numpy==1.26.4
 huggingface_hub>=1.0.0
+transformers>=4.48.0
+torch>=2.5.0
+sentencepiece>=0.2.0
