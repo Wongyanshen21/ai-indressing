@@ -1,6 +1,5 @@
 import os
 import socket
-import requests
 import asyncio
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import Response
@@ -38,21 +37,20 @@ async def test_hf_connectivity():
     if not token:
         return {"error": "HUGGINGFACE_API_TOKEN not set"}
 
-    def _test():
-        return requests.get(
-            "https://api-inference.huggingface.co/models/mattmdjaga/segformer_b2_clothes",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10.0,
-        )
-
     try:
-        resp = await asyncio.to_thread(_test)
+        from huggingface_hub import HfApi
+        api = HfApi(token=token)
+
+        def _test():
+            return api.whoami()
+
+        identity = await asyncio.to_thread(_test)
         return {
-            "status_code": resp.status_code,
-            "body_preview": resp.text[:300],
+            "status": "ok",
+            "user": identity.get("name", identity.get("email", "unknown")),
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e), "message": "Hugging Face API test failed"}
 
 
 @router.post("/segment")
