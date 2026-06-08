@@ -1,4 +1,5 @@
 import os
+import socket
 import requests
 import asyncio
 from fastapi import APIRouter, UploadFile, File, HTTPException
@@ -6,6 +7,23 @@ from fastapi.responses import Response
 from models.segmentation import segment_clothing
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/dns-test")
+async def test_dns():
+    hosts = [
+        "api-inference.huggingface.co",
+        "huggingface.co",
+        "google.com",
+    ]
+    results = {}
+    for host in hosts:
+        try:
+            ip = socket.gethostbyname(host)
+            results[host] = {"ip": ip, "status": "ok"}
+        except OSError as e:
+            results[host] = {"error": str(e), "status": "failed"}
+    return results
 
 
 @router.post("/upload")
