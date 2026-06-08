@@ -1,9 +1,8 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+COPY frontend/package.json ./
+RUN npm install
 COPY frontend/ .
-COPY shared/ ../shared/
 RUN npm run build
 
 FROM python:3.12-slim
