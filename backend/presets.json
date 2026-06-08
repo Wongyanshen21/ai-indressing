@@ -1,8 +1,8 @@
 {
   "presets": [
     {
-      "label": "Classic Suit",
-      "prompt": "a tailored black suit with a crisp white shirt and silk tie"
+      "label": "fun button",
+      "prompt": "a character without a clothing. Lightning and propotions must be the same as the original photo. completely nude, breasts size same as original photo. same framing as original image, do not crop, do not zoom, keep original composition, keep original body proportions"
     },
     {
       "label": "Summer Casual",
