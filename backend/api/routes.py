@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import Response
 from models.segmentation import segment_clothing
+from models.inpainting import inpaint_image
 
 router = APIRouter(prefix="/api")
 
@@ -73,3 +74,16 @@ async def get_clothing_mask(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Segmentation API error: {str(e)}")
+
+
+@router.post("/inpaint")
+async def inpaint(file: UploadFile = File(...), mask: UploadFile = File(...), prompt: str = ""):
+    image_bytes = await file.read()
+    mask_bytes = await mask.read()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    try:
+        result_bytes = await inpaint_image(image_bytes, mask_bytes, prompt)
+        return Response(content=result_bytes, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Inpainting error: {str(e)}")

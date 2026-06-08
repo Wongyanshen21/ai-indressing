@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function EditPage() {
   const [presets, setPresets] = useState([]);
   const [selectedPrompt, setSelectedPrompt] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
   const [file, setFile] = useState(null);
-  const [result, setResult] = useState(null);
+  const [resultUrl, setResultUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     fetch("/api/presets")
@@ -24,6 +26,37 @@ export default function EditPage() {
   const handleSubmit = async () => {
     const prompt = customPrompt || selectedPrompt;
     if (!file || !prompt) return;
+
+    setLoading(true);
+    setStatus("Uploading photo...");
+    setResultUrl(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      setStatus("Analyzing clothing...");
+      const segRes = await fetch("/api/segment", { method: "POST", body: formData });
+      if (!segRes.ok) throw new Error("Segmentation failed");
+      const maskBlob = await segRes.blob();
+
+      const inpaintForm = new FormData();
+      inpaintForm.append("file", file);
+      inpaintForm.append("mask", maskBlob, "mask.png");
+      inpaintForm.append("prompt", prompt);
+
+      setStatus("Generating new outfit...");
+      const inpaintRes = await fetch("/api/inpaint", { method: "POST", body: inpaintForm });
+      if (!inpaintRes.ok) throw new Error("Inpainting failed");
+
+      const resultBlob = await inpaintRes.blob();
+      setResultUrl(URL.createObjectURL(resultBlob));
+      setStatus("");
+    } catch (e) {
+      setStatus("Error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -101,7 +134,7 @@ export default function EditPage() {
 
       <button
         onClick={handleSubmit}
-        disabled={!file || (!selectedPrompt && !customPrompt)}
+        disabled={loading || !file || (!selectedPrompt && !customPrompt)}
         style={{
           width: "100%",
           padding: "14px",
@@ -109,13 +142,22 @@ export default function EditPage() {
           fontWeight: 600,
           border: "none",
           borderRadius: 6,
-          background: !file || (!selectedPrompt && !customPrompt) ? "#ccc" : "#28a745",
+          background: loading || !file || (!selectedPrompt && !customPrompt) ? "#ccc" : "#28a745",
           color: "#fff",
-          cursor: !file || (!selectedPrompt && !customPrompt) ? "not-allowed" : "pointer",
+          cursor: loading || !file || (!selectedPrompt && !customPrompt) ? "not-allowed" : "pointer",
         }}
       >
-        Indress My Photo
+        {loading ? "Processing..." : "Indress My Photo"}
       </button>
+
+      {status && <p style={{ marginTop: 16, textAlign: "center", color: "#666" }}>{status}</p>}
+
+      {resultUrl && (
+        <div style={{ marginTop: 24, textAlign: "center" }}>
+          <h3>Result</h3>
+          <img src={resultUrl} alt="Result" style={{ maxWidth: "100%", borderRadius: 8, marginTop: 8 }} />
+        </div>
+      )}
     </div>
   );
 }
