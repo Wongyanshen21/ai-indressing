@@ -16,7 +16,7 @@ async def segment_clothing(image_bytes: bytes) -> bytes:
     if not token:
         raise ValueError("HUGGINGFACE_API_TOKEN not set")
 
-    client = InferenceClient(token=token)
+    client = InferenceClient(token=token, provider="hf-inference")
 
     def _call():
         return client.image_segmentation(
